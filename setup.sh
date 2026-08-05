@@ -9,26 +9,27 @@
 #   3. Claude Code inside Ubuntu, via Anthropic's official installer
 #
 # WHAT THIS DOES NOT DO:
-#   9Router setup, provider API keys, combos, and ~/.claude/settings.json.
+#   OmniRoute setup, provider API keys, combos, and ~/.claude/settings.json.
 #   Those need your own keys and a browser, so they stay manual.
 #   The script prints the next steps when it finishes.
 #
 # Safe to re-run. Already-completed steps are detected and skipped.
 #
-# Version: 1.2 (2026-07-27)
-# Tested: 2026-07-26, clean run on a freshly wiped Termux (aarch64, unrooted)
+# Version: 2.0 (2026-08-05)
+# Tested: 2026-08-05, clean run on a freshly wiped Termux (aarch64, unrooted)
+# 2.0: replaced 9Router with OmniRoute (290+ providers, zero-config, auto-fallback)
 # 1.2: retry pkg, curl, and the Ubuntu download; pre-flight connectivity check;
 #      fully non-interactive pkg/apt so nothing can hang on a prompt
 # 1.1: auto-retry apt once after clearing the index (fixes 'Hash Sum mismatch')
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/iAmAjayTeli/claude-code-android/main/setup.sh -o setup.sh
+#   curl -fsSL https://raw.githubusercontent.com/Tophunt-max/claude-code-android/main/setup.sh -o setup.sh
 #   cat setup.sh          # read it first
 #   bash setup.sh
 
 set -uo pipefail   # deliberately NOT -e: pkg upgrade can exit non-zero on
                    # harmless prompts. Every step below is checked explicitly.
 
-VERSION="1.2"
+VERSION="2.0"
 MIN_FREE_MB=5000
 export MAX_TRIES=3    # how many times to attempt a network operation before giving up
                      # exported so the apt_retry helper inside Ubuntu can see it
@@ -126,7 +127,7 @@ EOS
 # --- sanity checks -------------------------------------------------------------
 
 printf '\n\033[1mClaude Code on Android — automated setup v%s\033[0m\n' "$VERSION"
-printf 'Termux -> Ubuntu -> Claude Code. 9Router stays manual.\n'
+printf 'Termux -> Ubuntu -> Claude Code. OmniRoute setup stays manual.\n'
 
 [ -d /data/data/com.termux ] || die "This must run inside Termux.
 Install Termux from F-Droid or GitHub Releases — NOT the Play Store."
@@ -189,10 +190,10 @@ Try 'pkg install proot-distro -y' manually and read the output."
 ok "proot-distro ready"
 
 if command -v node >/dev/null 2>&1; then
-  ok "node $(node -v) — needed later for 9Router"
+  ok "node $(node -v) — needed for OmniRoute"
 else
-  warn "Node.js did not install. Claude Code does not need it, but 9Router
-does. Fix with 'pkg install nodejs -y' before the 9Router step."
+  warn "Node.js did not install. OmniRoute needs it.
+Fix with 'pkg install nodejs -y' before the OmniRoute step."
 fi
 
 # --- step 2: ubuntu ------------------------------------------------------------
@@ -275,22 +276,26 @@ cat <<'EOF'
 
  FIRST, know which shell you are in. This trips up most people:
 
-   Termux prompt:  ~ $              -> 9router lives HERE
-   Ubuntu prompt:  root@...:~#      -> claude lives HERE
+   Termux prompt:  ~ $              -> OmniRoute lives HERE
+   Ubuntu prompt:  root@...:~#      -> Claude Code lives HERE
 
  ----------------------------------------------------------------------
- 1. 9ROUTER  (in Termux, this session)
+ 1. OMNIROUTE  (in Termux, this session)
 
-      npm install -g 9router
-      9router
+      npm install -g omniroute
+      omniroute
 
     Leave it running. Open http://localhost:20128 in your phone browser.
     Default dashboard password: 123456
     >> CHANGE IT. It is a published default. Do this before you use this
        phone on any shared or public network.
 
-    Add your free providers, then create a priority-ordered combo and
-    name it:  claude-opus-free
+    >> ZERO-CONFIG: OmniRoute works immediately with 40+ free providers.
+       No keys needed to start. Just open the dashboard and connect free
+       providers (OpenCode, Kilo, etc.) via the "Providers" tab.
+
+    >> COMBOS: Optional. Create a "claude-opus-free" combo in the dashboard
+       for auto-fallback across providers. See free-api-options.md.
 
  ----------------------------------------------------------------------
  2. SETTINGS.JSON  (inside Ubuntu, in a NEW Termux session)
@@ -310,7 +315,7 @@ cat <<'EOF'
  ----------------------------------------------------------------------
  THEN, daily use — two Termux sessions:
 
-      session 1:  9router
+      session 1:  omniroute
       session 2:  proot-distro login ubuntu  ->  claude
 
  Stuck? -> troubleshooting.md

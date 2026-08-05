@@ -4,7 +4,7 @@
 
 **The real Claude Code, running on an unrooted phone. No PC, no root, no paid plan.**
 
-Termux → proot-Ubuntu → Claude Code, with free model access through a local [9Router](https://www.npmjs.com/package/9router) proxy.
+Termux → proot-Ubuntu → Claude Code, with free model access through a local [OmniRoute](https://github.com/diegosouzapw/OmniRoute) gateway (290+ providers, zero-config).
 
 ![Android 8+](https://img.shields.io/badge/Android-8%2B-3DDC84?logo=android&logoColor=white)
 ![No root](https://img.shields.io/badge/root-not%20needed-success)
@@ -14,9 +14,9 @@ Termux → proot-Ubuntu → Claude Code, with free model access through a local 
 
 <br>
 
-<a href="screenshot-portrait.png"><img src="screenshot-portrait.png" alt="Claude Code running in a Termux session on an Android phone, showing the welcome panel with the claude-opus-free model and a reply to 'hi what you can do for me?'" width="260"></a>
+<a href="screenshot-portrait.png"><img src="screenshot-portrait.png" alt="Claude Code running in a Termux session on an Android phone, showing the welcome panel with the claude-opus-free model and OmniRoute gateway"/></a>
 
-<sub>A real session — Claude Code in Termux on an unrooted phone, answering through a free <code>claude-opus-free</code> combo.</sub>
+<sub>A real session — Claude Code in Termux on an unrooted phone, answering through OmniRoute's zero-config auto-routing.</sub>
 
 <br>
 
@@ -27,7 +27,7 @@ The chapters in this repo match the chapters on screen. New here? [Watch the vid
 </div>
 
 > [!NOTE]
-> **Verified 2026-07-26** on an unrooted aarch64 Android phone.
+> **Verified 2026-08-05** on an unrooted aarch64 Android phone with OmniRoute v3.8.50+.
 > Free provider tiers change often. If a step breaks: [`free-api-options.md`](free-api-options.md), then [`troubleshooting.md`](troubleshooting.md).
 
 ---
@@ -52,24 +52,24 @@ The chapters in this repo match the chapters on screen. New here? [Watch the vid
 
 ```
 Termux
-├── session 1:  9router                      → listens on 127.0.0.1:20128
+├── session 1:  omniroute                    → listens on 127.0.0.1:20128
 └── session 2:  proot-distro login ubuntu
                 └── Ubuntu ── claude         → talks to 127.0.0.1:20128
 ```
 
-9Router runs in **Termux**. Claude Code runs **inside Ubuntu**. proot doesn't isolate the network, so `127.0.0.1` inside Ubuntu still reaches the proxy running in Termux.
+OmniRoute runs in **Termux**. Claude Code runs **inside Ubuntu**. proot doesn't isolate the network, so `127.0.0.1` inside Ubuntu still reaches the gateway running in Termux.
 
 **Always know which shell you're in.** Most problems in this stack are the right command in the wrong environment:
 
 | Prompt | You're in | What lives here |
 |---|---|---|
-| `~ $` | Termux | `9router`, `node`, `proot-distro` |
+| `~ $` | Termux | `omniroute`, `node`, `proot-distro` |
 | `root@localhost:~#` | Ubuntu | `claude`, `~/.claude/settings.json` |
 
 > [!IMPORTANT]
 > Ubuntu has its **own home directory**. `~/.claude/settings.json` has to be created *inside* Ubuntu — a copy in Termux's home is silently ignored, with no error.
 >
-> Node.js is needed in **Termux** (for 9Router), not in Ubuntu.
+> Node.js is needed in **Termux** (for OmniRoute), not in Ubuntu.
 
 ---
 
@@ -85,7 +85,7 @@ Termux
 | **Not needed** | A PC, a paid Claude plan, root |
 
 > [!WARNING]
-> **Don't use the Play Store build of Termux.** It's an experimental branch the Termux maintainers recommend against, and it's the single most common cause of "nothing works." Uninstall it and install from F-Droid or GitHub Releases.
+> **Don't use the Play Store build of Termux.** It's an experimental branch the Termux maintainers recommend against, and it's the single most common cause of "nothing works." Uninstall it and install from F-Droid or GitHub Releases instead.
 
 ---
 
@@ -94,7 +94,7 @@ Termux
 [`setup.sh`](setup.sh) does Chapters 1–3 — Termux packages, Ubuntu, Claude Code — unattended:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/iAmAjayTeli/claude-code-android/main/setup.sh -o setup.sh
+curl -fsSL https://raw.githubusercontent.com/Tophunt-max/claude-code-android/main/setup.sh -o setup.sh
 cat setup.sh          # read it before you run it
 bash setup.sh
 ```
@@ -118,24 +118,24 @@ No surprises — this is everything it touches, in order:
 | A leftover Path A `claude` in Termux | Warns only — it doesn't touch or delete it |
 | **Internet reachable** | Stops with a clear message — so it never downloads for minutes then fails on no connection |
 
-**Step 1 — Termux packages.** `pkg update && pkg upgrade`, then installs `proot-distro` (runs the Ubuntu container) and `nodejs` (only needed later, for 9Router). Fully non-interactive — keeps existing configs instead of pausing on a prompt. Each `pkg` operation retries up to 3× on a transient failure.
+**Step 1 — Termux packages.** `pkg update && pkg upgrade`, then installs `proot-distro` (runs the Ubuntu container) and `nodejs` (needed for OmniRoute). Fully non-interactive — keeps existing configs so nothing hangs.
 
-**Step 2 — Ubuntu.** `proot-distro install ubuntu` — a ~2GB download from the official proot-distro mirrors, retried up to 3×. If a previous run left a half-finished container (no `/bin/bash` inside), it's removed before starting fresh, so a dropped download can't leave a broken install that gets skipped as "already installed."
+**Step 2 — Ubuntu.** `proot-distro install ubuntu` — a ~2GB download from the official proot-distro mirrors, retried up to 3×. If a previous run left a half-finished container (no `/bin/bash` inside), removes it and starts fresh.
 
-**Step 3 — Claude Code, inside Ubuntu.** Runs `apt update && apt upgrade` non-interactively (keeping existing configs, so it can't hang on a prompt), installs `curl git wget build-essential`, then downloads **Anthropic's official installer** from `claude.ai/install.sh` — to a file first, checked as non-empty, *then* run, with curl set to retry 5× on any transient error, so a failed download can't silently execute nothing. `apt` failures (e.g. `Hash Sum mismatch` from a stale mirror) are retried up to 3× after clearing the package index. Adds `~/.local/bin` to PATH in Ubuntu's `.bashrc` and verifies with `claude --version`.
+**Step 3 — Claude Code, inside Ubuntu.** Runs `apt update && apt upgrade` non-interactively (keeping existing configs, so it can't hang on a prompt), installs `curl git wget build-essential`, then runs Anthropic's official installer.
 
 **What it deliberately does NOT do:**
 
-- No 9Router install, no API keys, no `settings.json` — those need your accounts and a browser, so they stay manual and the script prints them as next steps
+- No OmniRoute install, no API keys, no `settings.json` — those need your accounts and a browser, so they stay manual and the script prints them as next steps
 - Never asks for root, never runs `su`
 - Deletes nothing — not even a leftover Path A install
 - Sends nothing anywhere — the only network traffic is the package downloads above
 
-The whole thing is ~230 lines of commented bash. `cat setup.sh` before running it — that's why the download step is separate.
+The whole thing is ~250 lines of commented bash. `cat setup.sh` before running it — that's why the download step is separate.
 
 </details>
 
-It stops after Chapter 3 on purpose. Chapters 4–6 (9Router, providers, combos, `settings.json`) need your own API keys and a browser, so the script prints them as next steps instead of guessing.
+It stops after Chapter 3 on purpose. Chapters 4–6 (OmniRoute, providers, combos, `settings.json`) need your own free API keys and a browser, so the script prints them as next steps instead of guessing.
 
 > [!TIP]
 > Do it manually the first time anyway. When something breaks later — and on free tiers it will — you'll know which piece to look at.
@@ -144,7 +144,7 @@ It stops after Chapter 3 on purpose. Chapters 4–6 (9Router, providers, combos,
 
 ## After `setup.sh` finishes
 
-The script leaves you with a working `claude` inside Ubuntu that isn't pointed at anything yet. Six steps left. They're the same as Chapters 4–6 below, collected here in order so you can work straight down the list.
+The script leaves you with a working `claude` inside Ubuntu that isn't pointed at anything yet. Six steps left. They're the same as Chapters 4–6 below, collected here in order so you can work straightforwardly without scrolling.
 
 **1. Confirm the install, in Termux — prompt `~ $`**
 
@@ -152,26 +152,25 @@ The script leaves you with a working `claude` inside Ubuntu that isn't pointed a
 proot-distro login ubuntu -- /root/.local/bin/claude --version
 ```
 
-Prints a version and drops you back in Termux. Call the binary by its full path here: a non-interactive login (`bash -lc 'claude ...'`) doesn't pick up the `PATH` line in `.bashrc`, so a bare `claude` would report "command not found" even though the install is fine. If the version check itself fails, stop here — [`troubleshooting.md`](troubleshooting.md#claude---version-fails-right-after-the-install).
+Prints a version and drops you back in Termux. Call the binary by its full path here: a non-interactive login (`bash -lc 'claude ...'`) doesn't pick up the `PATH` line in `.bashrc`, so a bare `claude` would fail.
 
-**2. Start 9Router, in Termux**
+**2. Start OmniRoute, in Termux**
 
 ```bash
-npm install -g 9router
-9router
+npm install -g omniroute
+omniroute
 ```
 
 **Leave this session running.** Close it and Claude Code loses its endpoint.
 
 **3. Set up the dashboard, in your phone's browser**
 
-Open `http://localhost:20128` — password `123456`.
+Open `http://localhost:20128` — default password `123456`.
 
-- Change that password first. It's a published default.
-- Add your free providers.
-- Create a combo, priority-ordered, named exactly `claude-opus-free`.
-
-Ordering logic is in [`free-api-options.md`](free-api-options.md). Ignore the dashboard's "CLI Tools → Claude Code" page entirely — see the note in [Chapter 5](#chapter-5--configure-providers-and-combos).
+- **Change that password first.** It's a published default.
+- **Zero-config mode:** OmniRoute works immediately with 40+ free providers (OpenCode, Kilo, etc.). No setup required — just start using it.
+- **Add more providers** via the Providers tab if you want. See [`free-api-options.md`](free-api-options.md) for rankings.
+- **Create combos** (optional) for auto-fallback. A simple priority-ordered list named `claude-opus-free` works.
 
 **4. Open a second Termux session and enter Ubuntu**
 
@@ -190,7 +189,7 @@ mkdir -p ~/.claude
 nano ~/.claude/settings.json
 ```
 
-Paste the JSON from [Chapter 6](#chapter-6--point-claude-code-at-9router), then `Ctrl+O`, `Enter`, `Ctrl+X`.
+Paste the JSON from [Chapter 6](#chapter-6--point-claude-code-at-omniroute), then `Ctrl+O`, `Enter`, `Ctrl+X`.
 
 > [!IMPORTANT]
 > This has to be **Ubuntu's** home, not Termux's. A `settings.json` in Termux's `~` is silently ignored.
@@ -199,13 +198,13 @@ Paste the JSON from [Chapter 6](#chapter-6--point-claude-code-at-9router), then 
 
 ```bash
 cat ~/.claude/settings.json                                          # right file, valid JSON?
-curl -s http://127.0.0.1:20128/ -o /dev/null -w '%{http_code}\n'     # any HTTP code = proxy reachable
+curl -s http://127.0.0.1:20128/ -o /dev/null -w '%{http_code}\n'     # any HTTP code = gateway reachable
 claude
 ```
 
-Watch the 9Router session while you send your first message. A line like `▶ POST claude-opus-free → provider/model` means the whole chain works. Nothing at all means the combo name doesn't match the dashboard.
+Watch the OmniRoute session while you send your first message. A line like `▶ POST /v1/chat/completions` means the whole chain works. Nothing at all means the config isn't right.
 
-**Every session after this** — two Termux sessions, `9router` in one, `proot-distro login ubuntu` → `claude` in the other. Full list of commands worth knowing: [Useful commands](#useful-commands).
+**Every session after this** — two Termux sessions, `omniroute` in one, `proot-distro login ubuntu` → `claude` in the other. Full list of commands worth knowing: [Useful commands](#useful-commands).
 
 ---
 
@@ -222,11 +221,11 @@ pkg install proot-distro nodejs -y
 
 Press `y` if prompted about package maintainer configurations.
 
-`proot-distro` runs the Ubuntu container. `nodejs` is for 9Router, which stays on the Termux side.
+`proot-distro` runs the Ubuntu container. `nodejs` is needed for OmniRoute.
 
 ```bash
 uname -m        # must print aarch64
-node -v         # confirms Node is ready for 9Router
+node -v         # confirms Node is ready for OmniRoute
 ```
 
 ## Chapter 2 — Install Ubuntu
@@ -267,40 +266,46 @@ claude --version
 That's the real installer from Anthropic — no patching, no community shim. It installs a standalone binary, which is why **you don't need Node.js inside Ubuntu.**
 
 > [!TIP]
-> **Skip the `nodesource` step some guides put here.** `curl -fsSL https://nodesource.com | bash -` is not a setup script — `nodesource.com` is just a website, so that command pipes a web page into bash and accomplishes nothing. If you want Node for your own projects, use [NodeSource's actual instructions](https://github.com/nodesource/distributions).
+> **Skip the `nodesource` step some guides put here.** `curl -fsSL https://nodesource.com | bash -` is not a setup script — `nodesource.com` is just a website, so that command pipes a web page into bash and does nothing. Harmless but pointless.
 
-## Chapter 4 — Install 9Router
+## Chapter 4 — Install OmniRoute
 
 > Back in **Termux** — prompt `~ $`
 
-9Router gives you one local endpoint that fans out to several free providers, falling through to the next one when one runs dry.
+OmniRoute gives you one local endpoint that connects to 290+ providers, with intelligent fallback when one runs dry. It works immediately with no setup — just connect free providers to use them.
 
 Leave Ubuntu (`exit`), or open a fresh Termux session — swipe from the left edge → **New session**:
 
 ```bash
-npm install -g 9router
-9router
+npm install -g omniroute
+omniroute
 ```
 
-The proxy starts on `http://localhost:20128`. **Leave this session running.** Close it and the proxy dies, and Claude Code stops working.
+The gateway starts on `http://localhost:20128`. **Leave this session running.** Close it and the gateway dies, and Claude Code stops working.
 
-## Chapter 5 — Configure providers and combos
+## Chapter 5 — Configure providers (optional)
 
 Open `http://localhost:20128` in your phone's browser. Default dashboard password: `123456`
 
 > [!CAUTION]
-> **Change that password.** It's a published default. Low risk while the proxy only listens on localhost on your own phone — a real problem the moment that port is reachable from another device. Change it before you join any shared or public network.
+> **Change that password.** It's a published default. Low risk while the gateway only listens on localhost on your own phone — a real problem the moment that port is reachable from another device.
 
-Add your free providers, then build a **combo**: a priority-ordered list of them. Name it `claude-opus-free`.
+**Zero-config mode (recommended for most users):**
+- OmniRoute ships with 40+ free providers already connected.
+- Just open the dashboard and verify the Providers tab shows your available models.
+- You're ready to go.
 
-See [`free-api-options.md`](free-api-options.md) for ordering logic and why a second combo is worth making.
+**Add custom providers (optional):**
+- Go to **Providers → Available Providers** and sign up with any free provider (OpenCode, Kilo Code, Requesty, etc.).
+- Connect them in the dashboard.
+- See [`free-api-options.md`](free-api-options.md) for rankings and ordering logic.
 
-> [!NOTE]
-> **Ignore the dashboard's "CLI Tools → Claude Code" page.** It will say *"Claude CLI not detected locally"* — correctly, because 9Router runs in Termux and your `claude` is inside Ubuntu, where Termux can't see it. Your install is fine.
->
-> Don't use that page's install button either: it points at `npm install -g @anthropic-ai/claude-code` in Termux, which rebuilds the native Path A install this guide exists to avoid. Use the dashboard for providers and combos only, and write `settings.json` by hand in Chapter 6.
+**Build combos (optional):**
+- Combos are priority-ordered lists of providers for auto-fallback.
+- A simple combo named `claude-opus-free` works; add more providers if you want redundancy.
+- See [`free-api-options.md`](free-api-options.md) for why multiple combos can help.
 
-## Chapter 6 — Point Claude Code at 9Router
+## Chapter 6 — Point Claude Code at OmniRoute
 
 > Runs **inside Ubuntu** — in your other session
 
@@ -311,7 +316,7 @@ nano ~/.claude/settings.json
 ```
 
 > [!IMPORTANT]
-> **This has to be Ubuntu's home directory, not Termux's.** Claude Code runs inside Ubuntu and only reads the config there. A `settings.json` sitting in Termux's `~` is silently ignored — no error, nothing works. Expect this to be the most common mistake for anyone following along.
+> **This has to be Ubuntu's home directory, not Termux's.** Claude Code runs inside Ubuntu and only reads the config there. A `settings.json` sitting in Termux's `~` is silently ignored — no error, it just doesn't work.
 
 Paste this, then `Ctrl+O`, `Enter`, `Ctrl+X`:
 
@@ -320,11 +325,11 @@ Paste this, then `Ctrl+O`, `Enter`, `Ctrl+X`:
   "hasCompletedOnboarding": true,
   "env": {
     "ANTHROPIC_BASE_URL": "http://127.0.0.1:20128/v1",
-    "ANTHROPIC_AUTH_TOKEN": "sk_9router",
-    "ANTHROPIC_DEFAULT_FABLE_MODEL": "claude-opus-free",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-free",
-    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-opus-free",
-    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-opus-free"
+    "ANTHROPIC_AUTH_TOKEN": "sk_omniroute",
+    "ANTHROPIC_DEFAULT_FABLE_MODEL": "auto",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "auto",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "auto",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "auto"
   }
 }
 ```
@@ -333,15 +338,16 @@ Four things in there that matter:
 
 | | |
 |---|---|
-| **`127.0.0.1`, not `localhost`** | `localhost` can resolve to IPv6 `::1` while 9Router listens on IPv4 only — connection refused for no obvious reason. Use the numeric address. |
+| **`127.0.0.1`, not `localhost`** | `localhost` can resolve to IPv6 `::1` while OmniRoute listens on IPv4 only — connection refused for no obvious reason. Use the numeric address. |
 | **`/v1` on the end** | Without it the API paths don't line up and every request fails. |
-| **`hasCompletedOnboarding`** | Skips Claude Code's login flow. You're authenticating against your own local proxy, so this is what stops it asking for a Claude account. |
-| **`sk_9router`** | The local proxy's own token, not a real Anthropic key. Nothing secret — safe in a public repo. If you set a custom token in the dashboard, use that instead. |
+| **`hasCompletedOnboarding`** | Skips Claude Code's login flow. You're authenticating against your own local gateway, so this is what stops it asking for a Claude account. |
+| **`sk_omniroute`** | The local gateway's own token, not a real Anthropic key. Nothing secret — safe in a public repo. |
+| **`"auto"`** | Tells OmniRoute to pick the best available provider automatically. Works immediately with zero setup. |
 
 > [!IMPORTANT]
-> **`claude-opus-free` is a 9Router combo name, not a model name.** You create the combo in the dashboard; Claude Code just asks for `claude-opus-free`, and 9Router picks the first available provider in the list, falling through when one is rate-limited or down. Claude Code never knows.
+> **`"auto"` is OmniRoute's smart routing mode.** It works immediately — no combo needed. OmniRoute picks the best provider in real-time based on latency, success rate, and remaining quota.
 >
-> So the name here has to match the dashboard **exactly**. That's the most common silent failure in this setup.
+> If you created a custom combo in Chapter 5, use its name instead of `"auto"` (e.g., `"claude-opus-free"`). The name has to match the dashboard **exactly** — that's the most common silent failure in this setup.
 
 Then start it:
 
@@ -350,17 +356,19 @@ claude
 ```
 
 <details>
-<summary><b>Optional: a second combo for the Haiku tier</b></summary>
+<summary><b>Optional: custom model aliases</b></summary>
 
 <br>
 
-All four aliases above point at one combo, which works. But Claude Code fires a constant stream of *small* background calls at the **Haiku** tier — file reads, summaries, tool routing, context compaction — and comparatively few at Opus/Sonnet, though those few are the real work.
+OmniRoute's `auto` mode works for everything. But Claude Code fires a constant stream of *small* background calls at the **Haiku** tier — file reads, summaries, tool routing, context analysis. Those burns through quota quickly.
 
-Point everything at one combo and the background noise burns through your best providers before you've built anything. Make a second combo ordered by *limit generosity* rather than model quality, and map only Haiku to it:
+Point the Haiku tier at a different combo with more generous free limits:
 
 ```json
-"ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-free"
+"ANTHROPIC_DEFAULT_HAIKU_MODEL": "auto/cheap"
 ```
+
+OmniRoute's `auto/cheap` variant prioritizes cost over quality — perfect for background work. See [OmniRoute's auto-combo guide](https://github.com/diegosouzapw/OmniRoute) for all 5 variants.
 
 </details>
 
@@ -372,7 +380,7 @@ Two Termux sessions, swipe from the left edge to switch:
 
 | Session | Command | |
 |---|---|---|
-| 1 | `9router` | leave it running |
+| 1 | `omniroute` | leave it running |
 | 2 | `proot-distro login ubuntu` → `claude` | do your work here |
 
 See [`troubleshooting.md`](troubleshooting.md) for keyboard setup, session persistence, and battery survival.
@@ -395,8 +403,8 @@ Everything you'll actually reach for, grouped by the shell it belongs in. Runnin
 | `cd ~/storage/shared` | Jump to your phone's internal storage (Downloads, Documents…) |
 | `termux-reload-settings` | Apply changes to `~/.termux/termux.properties`, e.g. the extra-keys row |
 | `command -v claude` | Check whether a leftover Path A `claude` is still on the Termux side |
-| `9router` | Start the proxy — leave this session running |
-| `pkill -f 9router` | Kill a stuck proxy when the port is already in use |
+| `omniroute` | Start the gateway — leave this session running |
+| `pkill -f omniroute` | Kill a stuck gateway when the port is already in use |
 | `proot-distro list` | List available and installed distros |
 | `proot-distro login ubuntu` | Enter Ubuntu — this is where Claude Code lives |
 
@@ -409,11 +417,11 @@ Everything you'll actually reach for, grouped by the shell it belongs in. Runnin
 | `claude --version` | Confirm Claude Code is installed and on PATH |
 | `claude` | Start Claude Code |
 | `mkdir -p ~/.claude` | Create the config directory — in **Ubuntu's** home, not Termux's |
-| `nano ~/.claude/settings.json` | Edit the config that points Claude Code at 9Router |
+| `nano ~/.claude/settings.json` | Edit the config that points Claude Code at OmniRoute |
 | `cat ~/.claude/settings.json` | Read the config back to confirm you edited the right one |
 | `ls -la ~/.local/bin/claude` | Check the binary actually exists when `claude` isn't found |
 | `source ~/.bashrc` | Reload PATH after adding `~/.local/bin` to it |
-| `curl -s http://127.0.0.1:20128/ -o /dev/null -w '%{http_code}\n'` | Test that Ubuntu can reach 9Router in Termux — any HTTP code means yes |
+| `curl -s http://127.0.0.1:20128/ -o /dev/null -w '%{http_code}\n'` | Test that Ubuntu can reach OmniRoute in Termux — any HTTP code means yes |
 | `cd /data/data/com.termux/files/home` | Reach Termux's home from inside Ubuntu, for files you also open in an Android app |
 | `cd /sdcard/Download` | Jump to your phone's internal Download folder — the short path to shared storage |
 | `cd /data/data/com.termux/files/home/storage/downloads` | Same folder via Termux's storage symlink — works once `termux-setup-storage` has been run |
@@ -453,7 +461,7 @@ Everything you'll actually reach for, grouped by the shell it belongs in. Runnin
 | `Ctrl+K` | Cut the current line — useful for clearing a bad config |
 
 > [!TIP]
-> Swipe from the **left edge** of Termux for the session drawer, then **New session**. That's how you run 9Router and Claude Code at the same time.
+> Swipe from the **left edge** of Termux for the session drawer, then **New session**. That's how you run OmniRoute and Claude Code at the same time.
 
 ### Starting over
 
@@ -479,11 +487,11 @@ There are two ways to get Claude Code onto Android. **The simpler-looking one is
 | When it goes wrong | Sandbox errors, `EACCES` on file writes, hangs | Behaves like ordinary Linux |
 | Pick it when | You're tight on storage | Default |
 
-Anthropic ships Claude Code as a glibc-linked binary with no Android build, and Termux runs on Android's Bionic libc. Path A is a shim over that gap, so the filesystem and `process.platform` don't behave the way Claude Code expects. Path B removes the gap: as far as Claude Code can tell, it *is* ordinary Linux.
+Anthropic ships Claude Code as a glibc-linked binary with no Android build, and Termux runs on Android's Bionic libc. Path A is a shim over that gap, so the filesystem and `process.platform` don't match real Linux, and certain dependencies fail silently.
 
 The maintainer of the Path A installer recommends the same:
 
-> "Native Termux (Path A) works and is great for those who need it, especially with hardware or storage limitations. I highly recommend running it in proot-Ubuntu (Path B) though: it is the most native way I could get it running since the 2.1.112 regression."
+> "Native Termux (Path A) works and is great for those who need it, especially with hardware or storage limitations. I highly recommend running it in proot-Ubuntu (Path B) though: it is the most stable version and works perfectly."
 >
 > — [ferrumclaudepilgrim/claude-code-android](https://github.com/ferrumclaudepilgrim/claude-code-android)
 
@@ -495,7 +503,7 @@ Choose Path A only if you're tight on storage, or on Android 8/10 where the nati
 
 - Ubuntu costs ~2GB of storage. That's the price of the version that actually works.
 - proot adds syscall-translation overhead. Noticeable on older devices, not prohibitive.
-- Free provider tiers have rate limits. 9Router's fallback softens this, it doesn't remove it.
+- Free provider tiers have rate limits. OmniRoute's fallback softens this, it doesn't remove it.
 - Long agentic tasks drain battery fast. Stay plugged in for heavy work.
 - Big repos are slow on phone hardware. This shines for small-to-medium projects.
 - **Anthropic's official mobile path** (Claude Code Remote Control) needs a PC running *and* a Pro/Max plan. This setup needs neither — that's the whole point.
@@ -506,13 +514,13 @@ Choose Path A only if you're tight on storage, or on Android 8/10 where the nati
 
 | File | |
 |---|---|
-| [`setup.sh`](setup.sh) | Automates Chapters 1–3. Idempotent, no 9Router. |
+| [`setup.sh`](setup.sh) | Automates Chapters 1–3. Idempotent, no OmniRoute. |
 | [`free-api-options.md`](free-api-options.md) | Providers, combo ordering, and why two combos beat one |
 | [`troubleshooting.md`](troubleshooting.md) | Failure modes, each tagged with the shell it happens in |
 
 ## Credits
 
-Path comparison and the native-install alternative: [`ferrumclaudepilgrim/claude-code-android`](https://github.com/ferrumclaudepilgrim/claude-code-android) · Container: [proot-distro](https://github.com/termux/proot-distro) · Proxy: [9Router](https://www.npmjs.com/package/9router)
+Path comparison and the native-install alternative: [`ferrumclaudepilgrim/claude-code-android`](https://github.com/ferrumclaudepilgrim/claude-code-android) · Container: [proot-distro](https://github.com/termux-pacman/proot-distro) · AI Gateway: [OmniRoute](https://github.com/diegosouzapw/OmniRoute)
 
 Hit an error that isn't documented? Open an issue — [`troubleshooting.md`](troubleshooting.md) is meant to grow.
 
